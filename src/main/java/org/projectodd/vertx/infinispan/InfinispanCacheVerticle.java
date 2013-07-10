@@ -6,6 +6,7 @@ import org.infinispan.Cache;
 import org.infinispan.manager.DefaultCacheManager;
 import org.infinispan.util.concurrent.FutureListener;
 import org.infinispan.util.concurrent.NotifyingFuture;
+import org.vertx.java.core.Context;
 import org.vertx.java.core.Future;
 import org.vertx.java.core.Handler;
 import org.vertx.java.core.eventbus.Message;
@@ -30,31 +31,46 @@ public class InfinispanCacheVerticle extends Verticle {
         startedResult.setResult(null);
         vertx.eventBus().registerHandler(PUT, new Handler<Message<JsonObject>>() {
             @Override
-            public void handle(final Message<JsonObject> event) {
-                String key = event.body().getString("key");
-                Object value = event.body().getField("value");
+            public void handle(final Message<JsonObject> putEvent) {
+                String key = putEvent.body().getString("key");
+                Object value = putEvent.body().getField("value");
+
+                final Context context = vertx.currentContext();
 
                 final NotifyingFuture<Object> putResult = InfinispanCacheVerticle.this.cache.putAsync(key, value);
                 putResult.attachListener(new FutureListener<Object>() {
                     @Override
                     public void futureDone(java.util.concurrent.Future<Object> future) {
-                        event.reply();
+                        context.runOnContext(new Handler<Void>() {
+                            @Override
+                            public void handle(Void event) {
+                                putEvent.reply();
+                            }
+
+                        });
                     }
                 });
             }
         });
         vertx.eventBus().registerHandler(GET, new Handler<Message<String>>() {
             @Override
-            public void handle(final Message<String> event) {
-                NotifyingFuture<Object> result = InfinispanCacheVerticle.this.cache.getAsync(event.body());
+            public void handle(final Message<String> getEvent) {
+                NotifyingFuture<Object> result = InfinispanCacheVerticle.this.cache.getAsync(getEvent.body());
+                final Context context = vertx.currentContext();
+
                 result.attachListener(new FutureListener<Object>() {
                     @Override
-                    public void futureDone(java.util.concurrent.Future<Object> future) {
-                        try {
-                            event.reply(future.get());
-                        } catch (InterruptedException | ExecutionException e) {
-                            e.printStackTrace();
-                        }
+                    public void futureDone(final java.util.concurrent.Future<Object> future) {
+                        context.runOnContext(new Handler<Void>() {
+                            @Override
+                            public void handle(Void event) {
+                                try {
+                                    getEvent.reply(future.get());
+                                } catch (InterruptedException | ExecutionException e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                        });
                     }
                 });
             }
