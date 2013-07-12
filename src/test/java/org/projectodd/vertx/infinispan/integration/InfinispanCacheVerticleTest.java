@@ -11,10 +11,14 @@ import org.vertx.testtools.TestVerticle;
 import org.vertx.testtools.VertxAssert;
 
 public class InfinispanCacheVerticleTest extends TestVerticle {
+    
+    static {
+        System.setProperty("jgroups.bind_addr", "127.0.0.1" );
+    }
 
     @Override
     public void start() {
-        container.deployModule(System.getProperty("vertx.modulename"), new AsyncResultHandler<String>() {
+        container.deployModule(System.getProperty("vertx.modulename"), 2, new AsyncResultHandler<String>() {
             @Override
             public void handle(AsyncResult<String> asyncResult) {
                 initialize();
@@ -29,7 +33,8 @@ public class InfinispanCacheVerticleTest extends TestVerticle {
     }
 
     @Test
-    public void testNothing() {
+    public void testRaw() throws InterruptedException {
+        Thread.sleep( 5000 );
         final JsonObject cacheMe = new JsonObject().putString("cheese", "swiss");
         vertx.eventBus().send(InfinispanCacheVerticle.PUT, new JsonObject().putString("key", "item1").putObject("value", cacheMe), new Handler<Message<Object>>() {
             @Override
